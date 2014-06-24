@@ -1,0 +1,10 @@
+Package: libtest-nginx-perl
+Version: 0.23-1
+Architecture: all
+Maintainer: Miles Delahunty <mdelahunty@brandscreen.com>
+Installed-Size: 260
+Depends: perl
+Section: perl
+Priority: optional
+Homepage: http://search.cpan.org/dist/Test-Nginx/
+Description: Testing modules for Nginx C module development

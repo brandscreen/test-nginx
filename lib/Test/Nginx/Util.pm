@@ -16,6 +16,7 @@ use Time::HiRes qw( sleep );
 use File::Path qw(make_path);
 use File::Find qw(find);
 use File::Temp qw( tempfile :POSIX );
+use File::Basename qw(dirname);
 use Scalar::Util qw( looks_like_number );
 use IO::Socket::INET;
 use IO::Socket::UNIX;
@@ -364,13 +365,14 @@ our $TODO;
 our $PrevConfig;
 
 our $ServRoot   = $ENV{TEST_NGINX_SERVROOT} || File::Spec->catfile(cwd() || '.', 't/servroot');
-our $LogDir     = File::Spec->catfile($ServRoot, 'logs');
+our $LogDir     = File::Spec->catfile($ServRoot, $ENV{TEST_NGINX_LOGS_DIR} || 'logs');
 our $ErrLogFile = File::Spec->catfile($LogDir, 'error.log');
 our $AccLogFile = File::Spec->catfile($LogDir, 'access.log');
-our $HtmlDir    = File::Spec->catfile($ServRoot, 'html');
-our $ConfDir    = File::Spec->catfile($ServRoot, 'conf');
-our $ConfFile   = File::Spec->catfile($ConfDir, 'nginx.conf');
-our $PidFile    = File::Spec->catfile($LogDir, 'nginx.pid');
+our $HtmlDir    = File::Spec->catfile($ServRoot, $ENV{TEST_NGINX_HTML_DIR} || 'html');
+our $TempDir    = File::Spec->catfile($ServRoot, $ENV{TEST_NGINX_TEMP_DIR});
+our $ConfDir    = File::Spec->catfile($ServRoot, $ENV{TEST_NGINX_CONF_DIR} || 'conf');
+our $ConfFile   = File::Spec->catfile($ConfDir, $ENV{TEST_NGINX_CONF_FILE} || 'nginx.conf');
+our $PidFile    = File::Spec->catfile($LogDir, $ENV{TEST_NGINX_PID_FILE} || 'nginx.pid');
 
 sub parse_time ($) {
     my $tm = shift;
@@ -565,16 +567,15 @@ sub setup_server_root () {
                 bail_out "Can't remove $ServRoot (not empty?)";
         }
     }
-    if (!-d $ServRoot) {
-        mkdir $ServRoot or
-            bail_out "Failed to do mkdir $ServRoot\n";
-    }
-    if (!-d $LogDir) {
-        mkdir $LogDir or
-            bail_out "Failed to do mkdir $LogDir\n";
-    }
-    mkdir $HtmlDir or
-        bail_out "Failed to do mkdir $HtmlDir\n";
+    make_path $ServRoot;
+    make_path $LogDir;
+    make_path dirname $ErrLogFile;
+    make_path dirname $AccLogFile;
+    make_path $HtmlDir;
+    make_path $TempDir;
+    make_path $ConfDir;
+    make_path dirname $ConfFile;
+    make_path dirname $PidFile;
 
     my $index_file = "$HtmlDir/index.html";
 
@@ -584,9 +585,6 @@ sub setup_server_root () {
     print $out '<html><head><title>It works!</title></head><body>It works!</body></html>';
 
     close $out;
-
-    mkdir $ConfDir or
-        bail_out "Failed to do mkdir $ConfDir\n";
 }
 
 sub write_user_files ($) {

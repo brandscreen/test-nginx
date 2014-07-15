@@ -14,7 +14,7 @@ use Cwd qw( cwd );
 use List::Util qw( shuffle );
 use Time::HiRes qw( sleep );
 use File::Path qw(make_path);
-use File::Find qw(find);
+use File::Find qw(find finddepth);
 use File::Temp qw( tempfile :POSIX );
 use File::Basename qw(dirname);
 use Scalar::Util qw( looks_like_number );
@@ -563,6 +563,7 @@ sub setup_server_root () {
                 bail_out "Can't remove $LogDir";
             system("rm -rf $ServRoot/*_temp > /dev/null") == 0 or
                 bail_out "Can't remove $ServRoot/*_temp";
+            finddepth(sub { rmdir $_ if -d }, $ServRoot);
             system("rmdir $ServRoot > /dev/null") == 0 or
                 bail_out "Can't remove $ServRoot (not empty?)";
         }

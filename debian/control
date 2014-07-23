@@ -9,5 +9,5 @@ Homepage: http://search.cpan.org/dist/Test-Nginx/
 
 Package: libtest-nginx-perl
 Architecture: all
-Depends: ${misc:Depends}, ${perl:Depends}, liblist-moreutils-perl, libwww-perl, libhttp-message-perl
+Depends: ${misc:Depends}, ${perl:Depends}, liblist-moreutils-perl, libwww-perl, libhttp-message-perl, libtest-base-perl, libtest-longstring-perl
 Description: Testing modules for Nginx C module development

@@ -11,7 +11,7 @@ __END__
 
 =head1 NAME
 
-Test::Nginx - Testing modules for Nginx C module development
+Test::Nginx - Data-driven test scaffold for Nginx C module and OpenResty Lua library development
 
 =head1 DESCRIPTION
 
@@ -285,7 +285,17 @@ If you want a commit bit, feel free to drop me a line.
 =head1 DEBIAN PACKAGES
 
 António P. P. Almeida is maintaining a Debian package for this module
-in his Debian repository: http://debian.perusio.net
+in his Debian repository: L<http://debian.perusio.net>
+
+=head1 Community
+
+=head2 English Mailing List
+
+The C<openresty-en> mailing list is for English speakers: L<https://groups.google.com/group/openresty-en>
+
+=head2 Chinese Mailing List
+
+The C<openresty> mailing list is for Chinese speakers: L<https://groups.google.com/group/openresty>
 
 =head1 AUTHORS
 
@@ -295,7 +305,7 @@ Antoine BONAVITA C<< <antoine.bonavita@gmail.com> >>
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright (c) 2009-2012, agentzh C<< <agentzh@gmail.com> >>.
+Copyright (c) 2009-2014, agentzh C<< <agentzh@gmail.com> >>.
 
 Copyright (c) 2011-2012, Antoine Bonavita C<< <antoine.bonavita@gmail.com> >>.
 

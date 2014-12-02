@@ -1361,9 +1361,9 @@ start_nginx:
                     $opts = "--tool=memcheck --leak-check=full --show-possibly-lost=no";
 
                     if (-f 'valgrind.suppress') {
-                        $cmd = "valgrind --num-callers=100 -q $opts --gen-suppressions=all --suppressions=valgrind.suppress $cmd";
+                        $cmd = "valgrind --num-callers=50 -q $opts --gen-suppressions=all --suppressions=valgrind.suppress $cmd";
                     } else {
-                        $cmd = "valgrind --num-callers=100 -q $opts --gen-suppressions=all $cmd";
+                        $cmd = "valgrind --num-callers=50 -q $opts --gen-suppressions=all $cmd";
                     }
 
                 } else {
@@ -1598,13 +1598,16 @@ request:
             my $target = $block->tcp_listen;
 
             my $reply = $block->tcp_reply;
-            if (!defined $reply) {
+            if (!defined $reply && !defined $block->tcp_shutdown) {
                 bail_out("$name - no --- tcp_reply specified but --- tcp_listen is specified");
             }
 
             my $req_len = $block->tcp_query_len;
 
             if (defined $block->tcp_query || defined $req_len) {
+                if (!defined $req_len) {
+                    $req_len = length($block->tcp_query);
+                }
                 $tcp_query_file = tmpnam();
             }
 
@@ -1702,32 +1705,69 @@ request:
                     sleep $TestNginxSleep;
                 }
 
-                my $buf;
-
-                while (1) {
-                    my $b;
-                    my $ret = $client->recv($b, 4096);
-                    if (!defined $ret) {
-                        die "failed to receive: $!\n";
+                my ($no_read, $no_write);
+                if (defined $block->tcp_shutdown) {
+                    my $shutdown = $block->tcp_shutdown;
+                    if ($block->tcp_shutdown_delay) {
+                        sleep $block->tcp_shutdown_delay;
                     }
+                    $client->shutdown($shutdown);
+                    if ($shutdown == 0 || $shutdown == 2) {
+                        if ($Verbose) {
+                            warn "tcp server shutdown the read part.\n";
+                        }
+                        $no_read = 1;
 
-                    $buf .= $b;
-
-                    if (!$req_len || length($buf) >= $req_len) {
-                        last;
+                    } else {
+                        if ($Verbose) {
+                            warn "tcp server shutdown the write part.\n";
+                        }
+                        $no_write = 1;
                     }
                 }
 
-                if ($tcp_query_file) {
-                    open my $out, ">$tcp_query_file"
-                        or die "cannot open $tcp_query_file for writing: $!\n";
-
+                unless ($no_read) {
                     if ($Verbose) {
-                        warn "writing received data [$buf] to file $tcp_query_file\n";
+                        warn "TCP server reading request...\n";
                     }
 
-                    print $out $buf;
-                    close $out;
+                    my $buf;
+
+                    while (1) {
+                        my $b;
+                        my $ret = $client->recv($b, 4096);
+                        if (!defined $ret) {
+                            die "failed to receive: $!\n";
+                        }
+
+                        if ($Verbose) {
+                            #warn "TCP server read data: [", $b, "]\n";
+                        }
+
+                        $buf .= $b;
+
+
+                        # flush read data to the file as soon as possible:
+
+                        if ($tcp_query_file) {
+                            open my $out, ">$tcp_query_file"
+                                or die "cannot open $tcp_query_file for writing: $!\n";
+
+                            if ($Verbose) {
+                                warn "writing received data [$buf] to file $tcp_query_file\n";
+                            }
+
+                            print $out $buf;
+                            close $out;
+                        }
+
+                        if (!$req_len || length($buf) >= $req_len) {
+                            if ($Verbose) {
+                                warn "len: ", length($buf), ", req len: $req_len\n";
+                            }
+                            last;
+                        }
+                    }
                 }
 
                 my $delay = parse_time($block->tcp_reply_delay);
@@ -1738,20 +1778,28 @@ request:
                     sleep $delay;
                 }
 
-                if (defined $reply) {
-                    if (ref $reply) {
-                        for my $r (@$reply) {
-                            #warn "sending reply $r";
-                            my $bytes = $client->send($r);
+                unless ($no_write) {
+                    if (defined $reply) {
+                        if ($Verbose) {
+                            warn "TCP server writing reply...\n";
+                        }
+
+                        if (ref $reply) {
+                            for my $r (@$reply) {
+                                if ($Verbose) {
+                                    warn "sending reply $r";
+                                }
+                                my $bytes = $client->send($r);
+                                if (!defined $bytes) {
+                                    warn "WARNING: tcp server failed to send reply: $!\n";
+                                }
+                            }
+
+                        } else {
+                            my $bytes = $client->send($reply);
                             if (!defined $bytes) {
                                 warn "WARNING: tcp server failed to send reply: $!\n";
                             }
-                        }
-
-                    } else {
-                        my $bytes = $client->send($reply);
-                        if (!defined $bytes) {
-                            warn "WARNING: tcp server failed to send reply: $!\n";
                         }
                     }
                 }
@@ -1972,10 +2020,7 @@ request:
         if (defined $tcp_socket) {
             my $buf = '';
             if ($tcp_query_file) {
-                if (!open my $in, $tcp_query_file) {
-                    warn "WARNING: cannot open tcp query file $tcp_query_file for reading: $!\n";
-
-                } else {
+                if (open my $in, $tcp_query_file) {
                     $buf = do { local $/; <$in> };
                     close $in;
                 }

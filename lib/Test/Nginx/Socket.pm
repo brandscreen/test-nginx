@@ -1030,24 +1030,33 @@ sub check_error_log ($$$$) {
             $pats = \@clone;
         }
 
+        my %found;
         $lines ||= error_log_data();
         for my $line (@$lines) {
             for my $pat (@$pats) {
                 next if !defined $pat;
                 #warn "test $pat\n";
                 if ((ref $pat && $line =~ /$pat/) || $line =~ /\Q$pat\E/) {
+                    if ($found{$pat}) {
+                        my $tb = Test::More->builder;
+                        $tb->no_ending(1);
+
+                    } else {
+                        $found{$pat} = 1;
+                    }
+
                     SKIP: {
                         skip "$name - no_error_log - tests skipped due to $dry_run", 1 if $dry_run;
                         my $ln = fmt_str($line);
                         my $p = fmt_str($pat);
                         fail("$name - pattern \"$p\" should not match any line in error.log but matches line \"$ln\" (req $repeated_req_idx)");
                     }
-                    undef $pat;
                 }
             }
         }
 
         for my $pat (@$pats) {
+            next if $found{$pat};
             if (defined $pat) {
                 SKIP: {
                     skip "$name - no_error_log - tests skipped due to $dry_run", 1 if $dry_run;
@@ -1694,13 +1703,14 @@ sub gen_cmd_from_req ($$) {
 
     $req = join '', map { $_->{value} } @$req;
 
-    #warn "Req: $req\n";
+    #use JSON::XS;
+    #warn "Req: ",  JSON::XS->new->encode([$req]), "\n";
 
     my ($meth, $uri, $http_ver);
-    if ($req =~ m{^\s*(\w+)\s+(.*\S)\s*HTTP/(\S+)\r\n}gcs) {
+    if ($req =~ m{^\s*(\w+)\s+(\S+)\s+HTTP/(\S+)\r?\n}smi) {
         ($meth, $uri, $http_ver) = ($1, $2, $3);
 
-    } elsif ($req =~ m{^\s*(\w+)\s+(.*\S)\r\n}gcs) {
+    } elsif ($req =~ m{^\s*(\w+)\s+(.*\S)\r?\n}smi) {
         ($meth, $uri) = ($1, $2);
         $http_ver = '0.9';
 
@@ -1724,7 +1734,7 @@ sub gen_cmd_from_req ($$) {
 
     my @headers;
     if ($http_ver ge '1.0') {
-        if ($req =~ m{\G(.*?)\r\n\r\n}gcs) {
+        if ($req =~ m{\G(.*?)\r?\n\r?\n}gcs) {
             my $headers = $1;
             #warn "raw headers: $headers\n";
             @headers = grep {
@@ -1770,6 +1780,9 @@ sub gen_cmd_from_req ($$) {
 
         } elsif ($meth eq 'POST') {
             push @opts, '-p', $bodyfile;
+
+        } elsif ($meth eq 'GET') {
+            warn "WARNING: method $meth not supported for ab when taking a request body\n";
 
         } else {
             warn "WARNING: method $meth not supported for ab when taking a request body\n";
@@ -2805,6 +2818,12 @@ Just like C<udp_query>, but for the embedded TCP server.
 
 Specifies the expected TCP query received by the embedded TCP server.
 
+If C<tcp_query> is specified, C<tcp_query_len> defaults to the length of the value of C<tcp_query>.
+
+=head2 tcp_shutdown
+
+Shuts down the reading part, writing part, or both in the embedded TCP server as soon as a new connection is established. Its value specifies which part to shut down: 0 for read part only, 1 for write part only, and 2 for both directions.
+
 =head2 raw_request_middle_delay
 
 Delay in sec between sending successive packets in the "raw_request" array
@@ -3134,7 +3153,17 @@ If you want a commit bit, feel free to drop me a line.
 =head1 DEBIAN PACKAGES
 
 António P. P. Almeida is maintaining a Debian package for this module
-in his Debian repository: http://debian.perusio.net
+in his Debian repository: L<http://debian.perusio.net>
+
+=head1 Community
+
+=head2 English Mailing List
+
+The C<openresty-en> mailing list is for English speakers: L<https://groups.google.com/group/openresty-en>
+
+=head2 Chinese Mailing List
+
+The C<openresty> mailing list is for Chinese speakers: L<https://groups.google.com/group/openresty>
 
 =head1 AUTHORS
 
